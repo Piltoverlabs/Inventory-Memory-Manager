@@ -1,4 +1,4 @@
-## Objetivo
+## Inventory-Memory-Manager
 
 Implemente um sistema de inventário em C que armazene múltiplos itens em um único bloco de memória alocado dinamicamente.
 
