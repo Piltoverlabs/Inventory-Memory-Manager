@@ -1,8 +1,8 @@
 # Inventory-Memory-Manager
 
-Implemente em **C** um sistema de inventário que armazene múltiplos itens em **um único bloco de memória**, sem utilizar `struct`, `realloc()` ou alocações individuais para os itens.
+Implemente em **C** um sistema de inventário que armazene múltiplos itens em **um único bloco de memória**, sem `struct`, `realloc()` ou alocações individuais por item.
 
-## 1. Layout
+## Layout
 
 O bloco deve conter:
 
@@ -20,11 +20,11 @@ O bloco deve conter:
 +-----------------------------+
 ```
 
-O header deve seguir exatamente essa ordem. Cada item ocupa **32 bytes**, incluindo `'\0'`.
+O header deve seguir essa ordem. Cada item ocupa exatamente **32 bytes**, incluindo `'\0'`.
 
-`createInventory()` deve retornar um ponteiro para o início da região de dados. Os metadados devem ser acessados por aritmética de ponteiros, retrocedendo `HEADER_SIZE` bytes.
+`createInventory()` deve retornar o início da região de dados. Os metadados devem ser acessados por aritmética de ponteiros, retrocedendo `HEADER_SIZE` bytes.
 
-## 2. Funções
+## Funções
 
 ```c
 void *createInventory(const char *inventoryName, size_t inventorySize);
@@ -41,91 +41,39 @@ Alocar header + todos os slots em uma única operação. Inicializar `capacity`,
 
 ### `addToInventory()`
 
-Adicionar no próximo slot disponível. Não ultrapassar a capacidade e não aceitar nomes que não caibam em 32 bytes, incluindo `'\0'`. Atualizar `count` somente após sucesso. Retornar `1` ou `0`.
+Adicionar no próximo slot disponível. Não ultrapassar a capacidade nem aceitar nomes que não caibam em 32 bytes, incluindo `'\0'`. Atualizar `count` somente após sucesso. Retornar `1` ou `0`.
 
 ### `getFromInventory()`
 
-Percorrer somente os slots ocupados e buscar pelo nome. Retornar um ponteiro para o item armazenado ou `NULL` se não encontrado. Não retornar cópias.
+Buscar pelo nome percorrendo somente os slots ocupados. Retornar um ponteiro para o item armazenado ou `NULL`. Não criar cópia.
 
 ### `removeFromInventory()`
 
-Localizar o item usando `getFromInventory()`. Para manter a região ocupada contígua, mover o último item para a posição removida quando necessário. Decrementar `count`, sem alterar `capacity` ou liberar memória individualmente. Se o item não existir, não modificar o inventário.
+Localizar usando `getFromInventory()`. Para evitar lacunas, mover o último item ocupado para a posição removida. Decrementar `count`. Não alterar `capacity` nem liberar memória individualmente. Se não encontrado, não modificar o inventário.
 
 ### `printInventory()`
 
-Imprimir:
-
-```text
-Inventory Name: ...
-capacity: ...
-count: ...
-element size: 32
-
-items:
-...
-```
-
-Deve funcionar com inventário vazio.
+Imprimir nome, capacidade, quantidade, tamanho do slot e os itens ocupados. Deve funcionar com inventário vazio.
 
 ### `deleteInventory()`
 
-Liberar o bloco original completo. Lembre-se de que `inventory` aponta para a região de dados, não para o início da alocação.
+Liberar o bloco original completo. O ponteiro recebido aponta para os dados, não para o início da alocação.
 
-## 3. Regras
+## Regras
 
 * Linguagem: **C**.
-* Proibido `struct` para representar o inventário/header.
+* Sem `struct` para inventário/header.
 * Uma única alocação dinâmica.
-* Proibido `realloc()`.
-* Nenhuma alocação por item.
-* Usar aritmética de ponteiros para os metadados.
-* Manter os itens em posições contíguas.
+* Sem `realloc()`.
+* Sem alocações individuais por item.
+* Usar aritmética de ponteiros para acessar os metadados.
+* Itens devem permanecer contíguos.
 * Não acessar memória fora do bloco.
 * Validar parâmetros e falhas de alocação.
-* Tratar overflow no cálculo do tamanho total.
+* Tratar overflow no tamanho da alocação.
 * Remoções não podem alterar a capacidade.
 
-## 4. Exemplo
-
-```c
-int main(void) {
-    void *inventory = createInventory("potato-inventory", 8);
-
-    if (!inventory)
-        return 1;
-
-    addToInventory(inventory, "potato-1");
-    addToInventory(inventory, "potato-2");
-    addToInventory(inventory, "potato-3");
-
-    printInventory(inventory);
-
-    char *item = getFromInventory(inventory, "potato-2");
-
-    if (item)
-        printf("Found: %s\n", item);
-
-    removeFromInventory(inventory, "potato-2");
-
-    printInventory(inventory);
-    deleteInventory(inventory);
-}
-```
-
-Após a remoção:
-
-```text
-Inventory Name: potato-inventory
-capacity: 8
-count: 2
-element size: 32
-
-items:
-potato-1
-potato-3
-```
-
-## 5. Testes
+## Testes
 
 Teste:
 
