@@ -1,12 +1,10 @@
 # Inventory-Memory-Manager
 
-Implemente em **C** um sistema de inventário que armazene múltiplos itens em **um único bloco de memória alocado dinamicamente**.
+Implemente em **C** um sistema de inventário que armazene múltiplos itens em **um único bloco de memória**, sem utilizar `struct`, `realloc()` ou alocações individuais para os itens.
 
-Não utilize `struct` para representar o inventário. Metadados e dados devem permanecer no mesmo bloco.
+## 1. Layout
 
-## 1. Layout de memória
-
-O bloco deve possuir:
+O bloco deve conter:
 
 ```text
 +-----------------------------+
@@ -22,67 +20,36 @@ O bloco deve possuir:
 +-----------------------------+
 ```
 
-O header contém, nesta ordem:
+O header deve seguir exatamente essa ordem. Cada item ocupa **32 bytes**, incluindo `'\0'`.
 
-1. `size_t capacity`
-2. `size_t count`
-3. `size_t elementSize`
-4. `char name[32]`
-
-Cada item ocupa exatamente **32 bytes**, incluindo `'\0'`.
-
-`createInventory()` deve retornar um ponteiro para o **início da região de dados**, e não para o início da alocação. Os metadados devem ser acessados retrocedendo `HEADER_SIZE` bytes.
+`createInventory()` deve retornar um ponteiro para o início da região de dados. Os metadados devem ser acessados por aritmética de ponteiros, retrocedendo `HEADER_SIZE` bytes.
 
 ## 2. Funções
 
 ```c
 void *createInventory(const char *inventoryName, size_t inventorySize);
-
 int addToInventory(void *inventory, const char *itemName);
-
 void *getFromInventory(void *inventory, const char *itemName);
-
 void removeFromInventory(void *inventory, const char *itemName);
-
 void printInventory(void *inventory);
-
 void deleteInventory(void *inventory);
 ```
 
 ### `createInventory()`
 
-* Alocar header + todos os slots em **uma única operação**.
-* Validar parâmetros e possíveis overflows.
-* Inicializar `capacity`, `count`, `elementSize` e `name`.
-* `count` deve iniciar em `0`.
-* Retornar o início da região de dados.
-* Retornar `NULL` em caso de erro.
+Alocar header + todos os slots em uma única operação. Inicializar `capacity`, `count = 0`, `elementSize = 32` e `name`. Validar parâmetros e overflow. Retornar `NULL` em caso de erro.
 
 ### `addToInventory()`
 
-* Inserir no próximo slot disponível.
-* Não ultrapassar `capacity`.
-* O nome deve caber nos 32 bytes, incluindo `'\0'`.
-* Atualizar `count` somente após a inserção.
-* Retornar `1` em sucesso e `0` em falha.
+Adicionar no próximo slot disponível. Não ultrapassar a capacidade e não aceitar nomes que não caibam em 32 bytes, incluindo `'\0'`. Atualizar `count` somente após sucesso. Retornar `1` ou `0`.
 
 ### `getFromInventory()`
 
-* Percorrer somente os slots ocupados.
-* Comparar os nomes.
-* Retornar um ponteiro para o item armazenado.
-* Retornar `NULL` se não encontrado.
-* Não criar uma cópia do item.
+Percorrer somente os slots ocupados e buscar pelo nome. Retornar um ponteiro para o item armazenado ou `NULL` se não encontrado. Não retornar cópias.
 
 ### `removeFromInventory()`
 
-* Localizar o item usando `getFromInventory()`.
-* Manter os itens ocupados contíguos.
-* Se o item removido não for o último, mover o último item para sua posição.
-* Decrementar `count`.
-* Não alterar `capacity`.
-* Não liberar memória individualmente.
-* Se o item não existir, não alterar o inventário.
+Localizar o item usando `getFromInventory()`. Para manter a região ocupada contígua, mover o último item para a posição removida quando necessário. Decrementar `count`, sem alterar `capacity` ou liberar memória individualmente. Se o item não existir, não modificar o inventário.
 
 ### `printInventory()`
 
@@ -92,31 +59,31 @@ Imprimir:
 Inventory Name: ...
 capacity: ...
 count: ...
-element size: ...
+element size: 32
 
 items:
 ...
 ```
 
-Deve funcionar também com inventário vazio.
+Deve funcionar com inventário vazio.
 
 ### `deleteInventory()`
 
-Liberar o **bloco original completo**, considerando que o ponteiro recebido aponta para a região de dados.
+Liberar o bloco original completo. Lembre-se de que `inventory` aponta para a região de dados, não para o início da alocação.
 
 ## 3. Regras
 
-* Linguagem: **C**
-* Proibido `struct` para inventário/header.
+* Linguagem: **C**.
+* Proibido `struct` para representar o inventário/header.
 * Uma única alocação dinâmica.
 * Proibido `realloc()`.
-* Nenhuma alocação individual por item.
-* Usar aritmética de ponteiros para acessar os metadados.
-* Itens devem permanecer em posições contíguas.
-* Não ultrapassar os limites alocados.
-* Validar parâmetros e falhas de `malloc()`.
-* Tratar overflow no cálculo do tamanho da alocação.
-* Preservar a capacidade durante remoções.
+* Nenhuma alocação por item.
+* Usar aritmética de ponteiros para os metadados.
+* Manter os itens em posições contíguas.
+* Não acessar memória fora do bloco.
+* Validar parâmetros e falhas de alocação.
+* Tratar overflow no cálculo do tamanho total.
+* Remoções não podem alterar a capacidade.
 
 ## 4. Exemplo
 
@@ -141,12 +108,11 @@ int main(void) {
     removeFromInventory(inventory, "potato-2");
 
     printInventory(inventory);
-
     deleteInventory(inventory);
 }
 ```
 
-Resultado após a remoção:
+Após a remoção:
 
 ```text
 Inventory Name: potato-inventory
@@ -159,20 +125,15 @@ potato-1
 potato-3
 ```
 
-## 5. Testes obrigatórios
+## 5. Testes
 
-Teste pelo menos:
+Teste:
 
-* Capacidade `0`.
-* Inventário vazio.
-* Inserção até a capacidade máxima.
-* Inserção com inventário cheio.
+* Capacidade `0` e inventário vazio.
+* Inserção até a capacidade e tentativa além dela.
 * Nome maior que 31 caracteres.
 * Busca existente e inexistente.
-* Remoção do primeiro item.
-* Remoção de item intermediário.
-* Remoção do último item.
-* Remoção de item inexistente.
+* Remoção do primeiro, intermediário, último e inexistente.
 * Exclusão do inventário.
 
 **Objetivo:** demonstrar domínio de alocação dinâmica, layout de memória, aritmética de ponteiros, strings e gerenciamento manual de memória em C.
